@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Shell</title>
+	<link rel="stylesheet" href="css/style.css">
+	<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body spellcheck="false">
+	<div class="sh">
+		<div class="head">
+			<p>&copy;<span class="year"></span> lkev.in</p>
+			<p>Welcome to <span class="url"></span></p>
+			<br/>
+			<p><span class="date"></span> @ <span class="user-agent"></span> <span class="ip"></span></p>
+			<p>* Last login <span class="last-date"></span> @ <span class="last-user-agent"></span> <span class="last-ip"></span></p>
+			<br/>
+			<p>Type <code>help</code> to get started.</p>
+		</div>
+		<div class="commands">
+			<div class="line">
+				<span class="linestart"><span class="user">user</span>@<span class="url"></span>:<span class="path">~</span>$</span>
+				<div class="command-input active" contenteditable="true" spellcheck="false" autofocus></div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		var currentYear = new Date().getFullYear();
+		var domain = window.location.hostname || window.location.host || window.location.href.split("/")[2] || 'localhost';
+		var userAgent;
+
+		document.addEventListener("DOMContentLoaded", function() {
+
+			const yearEls = document.querySelectorAll('.year');
+			yearEls.forEach(el => el.textContent = currentYear);
+
+			const urlEls = document.querySelectorAll('.url');
+			urlEls.forEach(el => el.textContent = domain);
+
+			const dateEl = document.querySelector('.date');
+			const now = new Date();
+			const options = {
+				day: '2-digit',
+				month: 'short',
+				year: 'numeric',
+				hour: '2-digit',
+				minute: '2-digit',
+				second: '2-digit',
+				hour12: false
+			};
+			const formattedDate = new Intl.DateTimeFormat('en-US', options).format(now);
+			if (dateEl) dateEl.textContent = formattedDate;
+
+			const userAgentEl = document.querySelector('.user-agent');
+			const os = getOS();
+			const browser = getBrowser();
+			if (!os && !browser) {
+				userAgent = 'unknown agent';
+			} else if (os && !browser) {
+				userAgent = os;
+			} else if (!os && browser) {
+				userAgent = browser;
+			} else {
+				userAgent = os + ' / ' + browser;
+			}
+				
+			if (userAgentEl) userAgentEl.textContent = userAgent;
+
+			const lastUserAgentEl = document.querySelector('.last-user-agent');
+			const storedLastUserAgent = localStorage.getItem('lastUserAgent') || 'N/A'; // TODO
+			if (lastUserAgentEl) lastUserAgentEl.textContent = storedLastUserAgent
+
+			const ipEl = document.querySelector('.ip');
+
+			const lastDateEl = document.querySelector('.last-date');
+			const lastIpEl = document.querySelector('.last-ip');
+
+			// Load last values from localStorage (if any) // TODO switch to db
+			const storedLastDate = localStorage.getItem('lastDate') || 'N/A';
+			const storedLastIp = localStorage.getItem('lastIp') || 'N/A';
+			if (lastDateEl) lastDateEl.textContent = storedLastDate;
+			if (lastIpEl) lastIpEl.textContent = storedLastIp;
+
+			// Fetch current IP and store current values for next visit
+			fetch('https://api.ipify.org?format=json')
+				.then(response => {
+					if (!response.ok) throw new Error(response.statusText);
+					return response.json();
+				})
+				.then(data => {
+					const ip = data.ip || 'N/A';
+					if (ipEl) ipEl.textContent = ip;
+					// Save current visit info so it becomes "last" on next load
+					localStorage.setItem('lastIp', ip);
+					localStorage.setItem('lastDate', formattedDate);
+				})
+				.catch(error => {
+					console.error('Error fetching IP address:', error);
+					if (ipEl) ipEl.textContent = 'N/A';
+					localStorage.setItem('lastIp', 'N/A');
+					localStorage.setItem('lastDate', formattedDate);
+				});
+
+		});
+
+		// click anywhere to focus input - unless highlighting text
+		$(document).on('click', function(e) {
+			const selection = window.getSelection();
+			if (selection && selection.toString().length === 0) {
+				$('.command-input').focus();
+			}
+		});
+
+		var commands = []; // TODO save in localStorage
+		var commandIndex = 0; // points at the next position to insert (empty)
+
+		$(document).on('keydown', '.command-input.active', function(e) {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				$(this).removeAttr("contenteditable");
+				const command = $(this).text().trim();
+				if (command.length === 0) {
+					printNewPrompt();
+					return;
+				}
+				if(commands.length === 0 || commands[commands.length - 1] !== command) commands.push(command);
+				commandIndex = commands.length;
+				$(this).removeClass("active");
+				handleCommand(command);
+				printNewPrompt();
+			}else if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				if (commands.length === 0) return; // no history
+				commandIndex--;
+				if (commandIndex < 0) {
+					commandIndex = 0;
+					return;
+				}
+				$(this).text(commands[commandIndex]);
+				// put cursor at end
+				const el = this;
+				const range = document.createRange();
+				const sel = window.getSelection();
+				range.selectNodeContents(el);
+				range.collapse(false);
+				sel.removeAllRanges();
+				sel.addRange(range);
+			}
+			else if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				if (commands.length === 0) return; // no history
+				commandIndex++;
+				if (commandIndex >= commands.length) {
+					$(this).text('');
+					return;
+				}
+				$(this).text(commands[commandIndex]);
+				// put cursor at end
+				const el = this;
+				const range = document.createRange();
+				const sel = window.getSelection();
+				range.selectNodeContents(el);
+				range.collapse(false);
+				sel.removeAllRanges();
+				sel.addRange(range);
+			}
+		});
+
+		function getOS() {
+			const platform = navigator.platform.toLowerCase();
+			if (platform.includes('win')) return 'Windows';
+			if (platform.includes('mac')) return 'MacOS';
+			if (platform.includes('linux')) return 'Linux';
+			if (/iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase())) return 'iOS';
+			if (/android/.test(navigator.userAgent.toLowerCase())) return 'Android';
+			return 'Unknown';
+		}
+		function getBrowser() {
+			const ua = navigator.userAgent;
+			if (ua.includes("Chrome") && !ua.includes("Edg") && !ua.includes("OPR")) return "Chrome";
+			if (ua.includes("Firefox")) return "Firefox";
+			if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari";
+			if (ua.includes("Edg")) return "Edge";
+			if (ua.includes("OPR") || ua.includes("Opera")) return "Opera";
+			return "Unknown";
+		}
+
+		function handleCommand(input) {
+			const commandParts = input.trim().split(' ');
+			const command = commandParts[0].toLowerCase();
+			const arg = commandParts[1];
+
+			const commands = {
+				help: () => {
+					$('.commands').append(`
+<div class="output line">
+<p>${domain} ${userAgent} Bash, version 1.0-release<br/>These shell commands are defined internally. Type 'help' to see this list.</p>
+<div class="command-help-list">
+<p><code>help</code> display this help message</p>
+<p><code>about</code> information about me</p>
+<p><code>ferminotify</code> / <code>fn</code> connect to Fermi Notify [<code>-blank</code>]</p>
+<p><code>uni</code> connect to my uni tools [<code>-blank</code>]</p>
+<p><code>ig</code> my Instagram [<code>-blank</code>]</p>
+<p><code>gh</code> my GitHub [<code>-blank</code>]</p>
+<p><code>li</code> my LinkedIn [<code>-blank</code>]</p>
+<p><code>sudo</code> get superuser privileges</p>
+<p><code>echo [text]</code> display text</p>
+<p><code>clear</code> clear the terminal</p>
+</div>
+</div>
+					`);
+				},
+				clear: () => $('.sh').html('<div class="commands"></div>'),
+				about: () => {
+					$('.commands').append(`
+<div class="output line">
+<p>I’m Kevin, a Computer Engineering student at the University of Padua (UniPD), and a graduate of I.S. E. Fermi Mantova.<br/>You can explore my open source projects on <a href="https://lkev.in/gh" target="_blank" rel="noopener">GitHub</a>.</p>
+</div>
+					`);
+				},
+				sudo: () => {
+					$('.commands').append(`
+<div class="output line">
+<p>WIP</p>
+</div>
+					`);
+				},
+				echo: () => {
+					if (commandParts.length > 1) {
+						$('.commands').append(`
+<div class="output line">
+<p>${commandParts.slice(1).join(' ')}</p>
+</div>
+						`);
+					}
+				}
+			};
+
+			const links = {
+				fn: 'https://fn.lkev.in',
+				ferminotify: 'https://fn.lkev.in',
+				uni: 'https://unipv.lkev.in',
+				ig: 'https://lkev.in/ig',
+				gh: 'https://lkev.in/gh',
+				li: 'https://lkev.in/li'
+			};
+			const linksNames = {
+				fn: 'Fermi Notify',
+				ferminotify: 'Fermi Notify',
+				uni: 'Uni tools',
+				ig: 'Instagram',
+				gh: 'GitHub',
+				li: 'LinkedIn'
+			}
+
+			if (commands[command]) {
+				commands[command]();
+			} else if (links[command]) {
+				if (arg === '-blank') {
+					window.open(links[command], '_blank');
+					$('.commands').append(`<div class="output line"><p>Connecting to ${linksNames[command]} in a new tab...</p></div>`);
+				} else if (!arg) {
+					window.open(links[command], '_self');
+					$('.commands').append(`<div class="output line"><p>Connecting to ${linksNames[command]}...</p></div>`);
+				} else {
+					$('.commands').append(`<div class="output line"><p>Unrecognized argument: ${arg}</p></div>`);
+				}
+			} else {
+				$('.commands').append(`<div class="output line"><p>Unrecognized command: ${command}</p></div>`);
+			}
+
+			window.scrollTo(0, document.body.scrollHeight);
+		}
+
+		function printNewPrompt(){
+			$('.commands').append(`
+<div class="line">
+	<span class="linestart"><span class="user">user</span>@<span class="url">${domain}</span>:<span class="path">~</span>$</span>
+	<div class="command-input active" contenteditable="true" autofocus></div>
+</div>
+			`);
+			$('.command-input.active').focus();
+			window.scrollTo(0, document.body.scrollHeight);
+		}
+	</script>
+</body>
+</html>

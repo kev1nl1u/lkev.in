@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+:root{
+	--bg: #2d3441;
+	--font: #c5c8c6;
+	--fontFamily: 'JetBrains Mono', monospace;
+	--fontSize: 14px;
+	--lineStartUser: #e89996;
+	--lineStartUrl: #f4bf76;
+	--lineStartPath: #8fbcc6;
+}
+body{
+	background-color: var(--bg);
+	color: var(--font);
+	margin: 0;
+	padding: 0;
+	font-family: var(--fontFamily);
+	font-size: var(--fontSize);
+	font-weight: 400;
+	width: 100vw;
+	height: 100vh;
+	overflow: hidden;
+	margin: 0;
+}
+.sh{
+	box-sizing: border-box;
+	width: 100vw;
+	height: 100vh;
+	padding: 10px;
+}
+p{
+	margin: 0;
+	padding: 0;
+}
+.head{
+	margin-bottom: 25px;
+}
+
+code{
+	background-color: rgba(255, 255, 255, 0.1);
+	padding: 2px 4px;
+	border-radius: 4px;
+}
+
+.line {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    word-break: break-word;
+	line-height: 1.4;
+}
+.linestart {
+    flex-shrink: 0;
+}
+.linestart .user{
+	color: var(--lineStartUser);
+}
+.linestart .url{
+	color: var(--lineStartUrl);
+}
+.linestart .path{
+	color: var(--lineStartPath);
+}
+.line.output{
+	flex-direction: column;
+}
+
+.command-input {
+    flex: 1; /* take remaining width */
+    white-space: pre-wrap; /* allow wrapping */
+    word-wrap: break-word;
+    outline: none;
+    font-family: var(--fontFamily);
+    font-size: var(--fontSize);
+    color: var(--font);
+    min-height: 1em; /* at least one line */
+	outline: none; /* removes focus outline */
+    -webkit-user-modify: read-write-plaintext-only; /* tweak for Chrome */
+    text-decoration: none;
+}
+
+.command-help-list{
+	width: 100%;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 5px;
+}
+
+a{
+	color: var(--lineStartPath);
+	text-decoration: none;
+}
