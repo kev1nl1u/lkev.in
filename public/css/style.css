@@ -71,7 +71,7 @@ code{
 	flex-direction: column;
 }
 
-.command-input {
+.command-input, .password-input {
     flex: 1; /* take remaining width */
     white-space: pre-wrap; /* allow wrapping */
     word-wrap: break-word;
@@ -83,6 +83,11 @@ code{
 	outline: none; /* removes focus outline */
     -webkit-user-modify: read-write-plaintext-only; /* tweak for Chrome */
     text-decoration: none;
+}
+
+.password-input {
+    color: transparent;
+	caret-color: var(--font);
 }
 
 .command-help-list{
@@ -97,7 +102,7 @@ a{
 	text-decoration: none;
 }
 
-@media screen and (max-width: 600px) {
+@media screen and (max-width: 875px) {
 	.command-help-list{
 		grid-template-columns: 1fr;
 	}

@@ -66,6 +66,41 @@ app.post('/api/save-login', async (req, res) => {
     }
 });
 
+app.post('/api/sudo', (req, res) => {
+	const { password, arg } = req.body;
+	const correctPassword = process.env.SUDO_PASSWORD;
+
+	if (password === correctPassword) {
+		switch (arg) {
+			case 'ls':
+				var output = `
+<p>Available connections:<br/>	
+<code>fn</code> / <code>ferminotify</code>: Fermi Notify<br/>
+<code>uni</code>: Uni tools<br/>
+<code>ig</code>: Instagram<br/>
+<code>gh</code>: GitHub<br/>
+<code>li</code>: LinkedIn<br/>
+<code>fdb</code>: FermiDB<br/>
+Use [command] <code>-blank</code> to open in a new tab.</p>`
+				break;
+			case 'fdb':
+				var output = 'Opening FermiDB...';
+				var redirect = 'https://fdb.lkev.in';
+				break;
+			case 'fdb -blank':
+				var output = 'Opening FermiDB in a new tab...';
+				var redirect = 'https://fdb.lkev.in';
+				var target = '_blank';
+				break;
+			default:
+				res.json({ valid: true, output: 'sudo: unknown command' + (arg ? `: ${arg}` : ''), redirect: null, target: null });
+				return;
+		}
+		res.json({ valid: true, output, redirect, target });
+	} else {
+		res.json({ valid: false });
+	}
+});
 
 app.get('/gh', (req, res) => {
 	res.redirect('https://github.com/kev1nl1u');

@@ -185,7 +185,67 @@
 				commandIndex = commands.length;
 				$(this).removeClass("active");
 				handleCommand(command);
-				printNewPrompt();
+				if (!command.startsWith("sudo") || command == "sudo") printNewPrompt();
+				else{
+					printOutput(`<div class="line">[sudo] password:
+<div class="password-input active" contenteditable="true" autofocus></div></div>`
+					);
+					$('.password-input.active').focus();
+					// event listeners
+					$('.password-input.active').on('keydown', function(e) {
+						// ctrl+c to cancel password input
+						if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
+							e.preventDefault();
+							$(this).removeAttr("contenteditable");
+							$(this).removeClass("active");
+							printError(command, 'command canceled');
+							printNewPrompt();
+							return;
+						}else if (e.key === 'Enter') {
+							e.preventDefault();
+							$(this).removeAttr("contenteditable");
+							const password = $(this).text().trim();
+							$(this).removeClass("active");
+							if (password.length === 0) {
+								printError(command, 'no password entered');
+								printNewPrompt();
+								return;
+							}
+							// send password to backend for verification
+							$.ajax({
+								url: '/api/sudo',
+								method: 'POST',
+								contentType: 'application/json',
+								data: JSON.stringify({ password, arg: command.slice(5).trim() }),
+								success: (response) => {
+									if (response.valid) {
+										const argCommand = command.slice(5).trim().split(' ')[0].toLowerCase();
+										if (['clear', 'about', 'echo', 'cfu', 'ig', 'gh', 'li', 'fn', 'ferminotify', 'uni'].includes(argCommand)) {
+											handleCommand(command.slice(5).trim());
+										} else {
+											// get output from server
+											if (response.output && response.output.length > 0) {
+												printOutput(`<p>${response.output}</p>`);
+												if(response.redirect){
+													if (response.target === '_blank') window.open(response.redirect, '_blank');
+													else window.open(response.redirect, '_self');
+												}
+											}
+										}
+									} else {
+										printError(command, 'authentication failure');
+									}
+									printNewPrompt();
+								},
+								error: () => {
+									printError(command, 'error verifying password');
+									printNewPrompt();
+								}
+							});
+
+						}
+					});
+				}
 			}else if (e.key === 'ArrowUp') {
 				e.preventDefault();
 				if (commands.length === 0) return; // no history
@@ -243,96 +303,165 @@
 			return "Unknown";
 		}
 
+		// =============================
+		// Terminal Command System
+		// =============================
+		
+		// Helper functions for terminal output
+		function printOutput(content) {
+			$('.commands').append(`<div class="output line">${content}</div>`);
+		}
+
+		function printError(command, message) {
+			if (command && command.length > 0)
+				printOutput(`<p>${command}: ${message}</p>`);
+			else
+				printOutput(`<p>${message}</p>`);
+		}
+
+		function validateNoArgs(command, args) {
+			if (args.length > 0) {
+				printError(command, `unrecognized argument: ${args.join(' ')}`);
+				return false;
+			}
+			return true;
+		}
+
+		// Command configuration with args validation
+		const commandConfig = {
+			help: {
+				acceptsArgs: false,
+				description: 'display this help message',
+				execute: (args) => {
+					if (!validateNoArgs('help', args)) return;
+					
+					printOutput(`
+						<p>${domain} ${userAgent} Bash, version 1.0-release<br/>These shell commands are defined internally. Type 'help' to see this list.</p>
+						<div class="command-help-list">
+							<p><code>help</code> display this help message</p>
+							<p><code>about</code> information about me</p>
+							<p><code>ls</code> list connections</p>
+							<p><code>ferminotify</code> / <code>fn</code> connect to Fermi Notify [<code>-blank</code>]</p>
+							<p><code>uni</code> connect to my uni tools [<code>-blank</code>]</p>
+							<p><code>cfu</code> get my current cfu count</p>
+							<p><code>ig</code> my Instagram [<code>-blank</code>]</p>
+							<p><code>gh</code> my GitHub [<code>-blank</code>]</p>
+							<p><code>li</code> my LinkedIn [<code>-blank</code>]</p>
+							<p><code>sudo</code> get superuser privileges [command [arg...]]</p>
+							<p><code>echo [text]</code> display text</p>
+							<p><code>clear</code> clear the terminal</p>
+						</div>
+					`);
+				}
+			},
+			
+			clear: {
+				acceptsArgs: false,
+				description: 'clear the terminal',
+				execute: (args) => {
+					if (!validateNoArgs('clear', args)) return;
+					$('.sh').html('<div class="commands"></div>');
+				}
+			},
+			
+			about: {
+				acceptsArgs: false,
+				description: 'information about me',
+				execute: (args) => {
+					if (!validateNoArgs('about', args)) return;
+					printOutput(`
+						<p>I'm Kevin, a Computer Engineering student at the University of Padua (UniPD), and a graduate of I.S. E. Fermi Mantova.<br/>
+						You can explore my open source projects on <a href="https://lkev.in/gh" target="_blank" rel="noopener">GitHub</a>.</p>
+					`);
+				}
+			},
+			
+			ls: {
+				acceptsArgs: false,
+				description: 'list connections',
+				execute: (args) => {
+					if (!validateNoArgs('ls', args)) return;
+					printOutput(`
+						<p>Available connections:<br/>	
+						<code>fn</code> / <code>ferminotify</code>: Fermi Notify<br/>
+						<code>uni</code>: Uni tools<br/>
+						<code>ig</code>: Instagram<br/>
+						<code>gh</code>: GitHub<br/>
+						<code>li</code>: LinkedIn<br/>
+						Use [command] <code>-blank</code> to open in a new tab.</p>
+					`);
+				}
+			},
+			
+			cfu: {
+				acceptsArgs: false,
+				description: 'get my current cfu count',
+				execute: (args) => {
+					if (!validateNoArgs('cfu', args)) return;
+					printOutput('<p>WIP</p>');
+				}
+			},
+			
+			sudo: {
+				acceptsArgs: true,
+				description: 'get superuser privileges [command [arg...]]',
+				execute: (args) => {
+					if (args.length === 0) {
+						printOutput('<p>usage: <code>sudo</code> [command [arg...]]</p>');
+						return;
+					}
+					
+				}
+			},
+			
+			echo: {
+				acceptsArgs: true,
+				description: 'display text',
+				execute: (args) => {
+					const text = args.length > 0 ? args.join(' ') : '';
+					printOutput(`<p>${text}</p>`);
+				}
+			}
+		};
+
+		// Link configuration with supported options
+		const linkConfig = {
+			fn: { url: 'https://fn.lkev.in', name: 'Fermi Notify' },
+			ferminotify: { url: 'https://fn.lkev.in', name: 'Fermi Notify' },
+			uni: { url: 'https://unipv.lkev.in', name: 'Uni tools' },
+			ig: { url: 'https://lkev.in/ig', name: 'Instagram' },
+			gh: { url: 'https://lkev.in/gh', name: 'GitHub' },
+			li: { url: 'https://lkev.in/li', name: 'LinkedIn' }
+		};
+
+		function handleLinkCommand(command, args, config) {
+			if (args.length === 0) {
+				window.open(config.url, '_self');
+				printOutput(`<p>Connecting to ${config.name}...</p>`);
+			} else if (args.length === 1 && args[0] === '-blank') {
+				window.open(config.url, '_blank');
+				printOutput(`<p>Connecting to ${config.name} in a new tab...</p>`);
+			} else {
+				printError(command, `unrecognized argument: ${args.join(' ')}`);
+			}
+		}
+
 		function handleCommand(input) {
 			const commandParts = input.trim().split(' ');
 			const command = commandParts[0].toLowerCase();
-			const arg = commandParts[1];
+			const args = commandParts.slice(1);
 
-			const commands = {
-				help: () => {
-					$('.commands').append(`
-<div class="output line">
-<p>${domain} ${userAgent} Bash, version 1.0-release<br/>These shell commands are defined internally. Type 'help' to see this list.</p>
-<div class="command-help-list">
-<p><code>help</code> display this help message</p>
-<p><code>about</code> information about me</p>
-<p><code>ferminotify</code> / <code>fn</code> connect to Fermi Notify [<code>-blank</code>]</p>
-<p><code>uni</code> connect to my uni tools [<code>-blank</code>]</p>
-<p><code>cfu</code> get my current cfu count</p>
-<p><code>ig</code> my Instagram [<code>-blank</code>]</p>
-<p><code>gh</code> my GitHub [<code>-blank</code>]</p>
-<p><code>li</code> my LinkedIn [<code>-blank</code>]</p>
-<p><code>sudo</code> get superuser privileges</p>
-<p><code>echo [text]</code> display text</p>
-<p><code>clear</code> clear the terminal</p>
-</div>
-</div>
-					`);
-				},
-				clear: () => $('.sh').html('<div class="commands"></div>'),
-				about: () => {
-					$('.commands').append(`
-<div class="output line">
-<p>I’m Kevin, a Computer Engineering student at the University of Padua (UniPD), and a graduate of I.S. E. Fermi Mantova.<br/>You can explore my open source projects on <a href="https://lkev.in/gh" target="_blank" rel="noopener">GitHub</a>.</p>
-</div>
-					`);
-				},
-				cfu: () => {
-					$('.commands').append(`
-<div class="output line">
-<p>WIP</p>
-</div>
-					`);
-				},
-				sudo: () => {
-					$('.commands').append(`
-<div class="output line">
-<p>WIP</p>
-</div>
-					`);
-				},
-				echo: () => {
-					if (commandParts.length > 1) {
-						$('.commands').append(`
-<div class="output line">
-<p>${commandParts.slice(1).join(' ')}</p>
-</div>
-						`);
-					}
-				}
-			};
-
-			const links = {
-				fn: 'https://fn.lkev.in',
-				ferminotify: 'https://fn.lkev.in',
-				uni: 'https://unipv.lkev.in',
-				ig: 'https://lkev.in/ig',
-				gh: 'https://lkev.in/gh',
-				li: 'https://lkev.in/li'
-			};
-			const linksNames = {
-				fn: 'Fermi Notify',
-				ferminotify: 'Fermi Notify',
-				uni: 'Uni tools',
-				ig: 'Instagram',
-				gh: 'GitHub',
-				li: 'LinkedIn'
+			// Check built-in commands
+			if (commandConfig[command]) {
+				commandConfig[command].execute(args);
 			}
-
-			if (commands[command]) {
-				commands[command]();
-			} else if (links[command]) {
-				if (arg === '-blank') {
-					window.open(links[command], '_blank');
-					$('.commands').append(`<div class="output line"><p>Connecting to ${linksNames[command]} in a new tab...</p></div>`);
-				} else if (!arg) {
-					window.open(links[command], '_self');
-					$('.commands').append(`<div class="output line"><p>Connecting to ${linksNames[command]}...</p></div>`);
-				} else {
-					$('.commands').append(`<div class="output line"><p>Unrecognized argument: ${arg}</p></div>`);
-				}
-			} else {
-				$('.commands').append(`<div class="output line"><p>Unrecognized command: ${command}</p></div>`);
+			// Check link commands
+			else if (linkConfig[command]) {
+				handleLinkCommand(command, args, linkConfig[command]);
+			}
+			// Unknown command
+			else {
+				printError('', `Unrecognized command: ${command}`);
 			}
 
 			window.scrollTo(0, document.body.scrollHeight);
@@ -351,3 +480,4 @@
 	</script>
 </body>
 </html>
+		
