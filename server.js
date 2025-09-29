@@ -24,6 +24,7 @@ app.use(express.json());
 app.get('/', async (req, res) => {
 	var lastLogin = await getLastLoginInfo(req, res);
 	lastLogin = lastLogin.success ? lastLogin.data : {};
+	lastLogin.request_date = lastLogin.request_date.toISOString() || null;
 	res.render('index.ejs', { lastLogin });
 });
 
