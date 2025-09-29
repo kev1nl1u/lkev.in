@@ -24,7 +24,7 @@
 		<div class="commands">
 			<div class="line">
 				<span class="linestart"><span class="user">user</span>@<span class="url"></span>:<span class="path">~</span>$</span>
-				<div class="command-input active" contenteditable="true" spellcheck="false" autofocus></div>
+				<div class="command-input active" contenteditable="true" spellcheck="false" autofocus autocomplete='off' autocapitalize="off" autocorrect="off"></div>
 			</div>
 		</div>
 	</div>
@@ -211,7 +211,6 @@
 								printNewPrompt();
 								return;
 							}
-							// send password to backend for verificationù
 							$.ajax({
 								url: '/api/sudo',
 								method: 'POST',
@@ -485,7 +484,7 @@
 			$('.commands').append(`
 <div class="line">
 	<span class="linestart"><span class="user">user</span>@<span class="url">${domain}</span>:<span class="path">~</span>$</span>
-	<div class="command-input active" contenteditable="true" autofocus></div>
+	<div class="command-input active" contenteditable="true" autofocus autocomplete='off' autocapitalize="off" autocorrect="off"></div>
 </div>
 			`);
 			$('.command-input.active').focus();
