@@ -45,17 +45,16 @@ async function getLastLoginInfo(req, res) {
 
 app.post('/api/save-login', async (req, res) => {
   const { login_date, user_agent, ip_address } = req.body;
-
   const ipValue = (ip_address && ip_address !== 'unknown') ? ip_address : null;
 
   const query = `
-	INSERT INTO lkevin_console_lastlogin (id, request_date, user_agent, ip)
-	VALUES (1, $1, $2, $3)
-	ON CONFLICT (id)
-	DO UPDATE SET
-		request_date = EXCLUDED.request_date,
-		user_agent = EXCLUDED.user_agent,
-		ip = EXCLUDED.ip;
+    INSERT INTO lkevin_console_lastlogin (id, request_date, user_agent, ip)
+    VALUES (1, (to_timestamp($1, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Rome', $2, $3)
+    ON CONFLICT (id)
+    DO UPDATE SET
+      request_date = (to_timestamp($1, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Rome',
+      user_agent = EXCLUDED.user_agent,
+      ip = EXCLUDED.ip;
   `;
 
   try {
@@ -66,6 +65,7 @@ app.post('/api/save-login', async (req, res) => {
     res.json({ success: false, error: err.message });
   }
 });
+
 
 app.get('/gh', (req, res) => {
 	res.redirect('https://github.com/kev1nl1u');
