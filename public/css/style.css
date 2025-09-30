@@ -8,6 +8,14 @@
 	--lineStartUrl: #f4bf76;
 	--lineStartPath: #8fbcc6;
 }
+.material-symbols-outlined {
+	font-variation-settings:
+		'FILL' 0,
+		'wght' 400,
+		'GRAD' 200,
+		'opsz' 24;
+	font-size: var(--fontSize);
+}
 body{
 	background-color: var(--bg);
 	color: var(--font);

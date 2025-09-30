@@ -29,7 +29,7 @@ app.get('/', async (req, res) => {
 });
 
 async function getLastLoginInfo(req, res) {
-  const query = 'SELECT request_date, user_agent, ip FROM lkevin_console_lastlogin WHERE id = 1';
+  const query = 'SELECT request_date, user_agent, ip, location FROM lkevin_console_lastlogin WHERE id = 1';
   try {
 	const result = await pool.query(query);
 	if (result.rows.length > 0) {
@@ -44,21 +44,22 @@ async function getLastLoginInfo(req, res) {
 }
 
 app.post('/api/save-login', async (req, res) => {
-    const { user_agent, ip_address } = req.body;
+    const { user_agent, ip_address, location } = req.body;
     const login_date = new Date().toISOString(); 
 
     const query = `
-        INSERT INTO lkevin_console_lastlogin (id, request_date, user_agent, ip)
-        VALUES (1, $1, $2, $3)
+        INSERT INTO lkevin_console_lastlogin (id, request_date, user_agent, ip, location)
+        VALUES (1, $1, $2, $3, $4)
         ON CONFLICT (id)
         DO UPDATE SET
             request_date = EXCLUDED.request_date,
             user_agent = EXCLUDED.user_agent,
-            ip = EXCLUDED.ip;
+            ip = EXCLUDED.ip,
+            location = EXCLUDED.location;
     `;
 
     try {
-        await pool.query(query, [login_date, user_agent, ip_address || null]);
+        await pool.query(query, [login_date, user_agent, ip_address, location || null]);
         res.json({ success: true });
     } catch (err) {
         console.error(err);
