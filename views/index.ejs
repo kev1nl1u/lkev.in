@@ -188,63 +188,69 @@
 				if (!command.startsWith("sudo") || command == "sudo") printNewPrompt();
 				else{
 					printOutput(`<div class="line">[sudo] password:
-<div class="password-input active" contenteditable="true" autofocus></div></div>`
+<div class="password-input active" contenteditable="true" spellcheck="false" autofocus autocomplete='off' autocapitalize="off" autocorrect="off"></div></div>`
 					);
 					$('.password-input.active').focus();
 					// event listeners
 					var psw = "";
-					$('.password-input.active').on('keydown', function(e) {
-						// ctrl+c to cancel password input
-						if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
-							e.preventDefault();
-							$(this).removeAttr("contenteditable");
-							$(this).removeClass("active");
-							printError(command, 'command canceled');
+					$('.password-input.active')
+					.on('beforeinput', function(e) {
+						e.preventDefault(); // stop text from appearing in the contenteditable
+
+						const inputType = e.originalEvent.inputType;
+						const data = e.originalEvent.data;
+
+						if (inputType === "insertText") {
+						psw += data; // add typed char
+						} else if (inputType === "deleteContentBackward") {
+						psw = psw.slice(0, -1); // handle backspace
+						}
+					})
+					.on('keydown', function(e) {
+						if (e.key === 'Enter') {
+						e.preventDefault();
+						$(this).removeAttr("contenteditable").removeClass("active");
+
+						if (psw.length === 0) {
+							printError(command, 'no password entered');
 							printNewPrompt();
 							return;
-						}else if (e.key === 'Enter') {
-							e.preventDefault();
-							$(this).removeAttr("contenteditable");
-							$(this).removeClass("active");
-							if (psw.length === 0) {
-								printError(command, 'no password entered');
-								printNewPrompt();
-								return;
-							}
-							$.ajax({
-								url: '/api/sudo',
-								method: 'POST',
-								contentType: 'application/json',
-								data: JSON.stringify({ password: psw, arg: command.slice(5).trim() }),
-								success: (response) => {
-									if (response.valid) {
-										const argCommand = command.slice(5).trim().split(' ')[0].toLowerCase();
-										if (['clear', 'about', 'echo', 'cfu', 'ig', 'gh', 'li', 'fn', 'ferminotify', 'uni'].includes(argCommand)) {
-											handleCommand(command.slice(5).trim());
-										} else {
-											// get output from server
-											if (response.output && response.output.length > 0) {
-												printOutput(`<p>${response.output}</p>`);
-												if(response.redirect){
-													if (response.target === '_blank') window.open(response.redirect, '_blank');
-													else window.open(response.redirect, '_self');
-												}
-											}
-										}
-									} else {
-										printError(command, 'authentication failure');
+						}
+
+						$.ajax({
+							url: '/api/sudo',
+							method: 'POST',
+							contentType: 'application/json',
+							data: JSON.stringify({ password: psw, arg: command.slice(5).trim() }),
+							success: (response) => {
+							if (response.valid) {
+								const argCommand = command.slice(5).trim().split(' ')[0].toLowerCase();
+								if (['clear', 'about', 'echo', 'cfu', 'ig', 'gh', 'li', 'fn', 'ferminotify', 'uni'].includes(argCommand)) {
+								handleCommand(command.slice(5).trim());
+								} else {
+								if (response.output && response.output.length > 0) {
+									printOutput(`<p>${response.output}</p>`);
+									if (response.redirect) {
+									if (response.target === '_blank') window.open(response.redirect, '_blank');
+									else window.open(response.redirect, '_self');
 									}
-									printNewPrompt();
-								},
-								error: () => {
-									printError(command, 'error verifying password');
-									printNewPrompt();
 								}
-							});
-						}else {
-							// hide password input
-							e.preventDefault();
-							psw += e.key;
+								}
+							} else {
+								printError(command, 'authentication failure');
+							}
+							printNewPrompt();
+							},
+							error: () => {
+							printError(command, 'error verifying password');
+							printNewPrompt();
+							}
+						});
+						} else if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
+						e.preventDefault();
+						$(this).removeAttr("contenteditable").removeClass("active");
+						printError(command, 'command canceled');
+						printNewPrompt();
 						}
 					});
 				}
@@ -265,8 +271,7 @@
 				range.collapse(false);
 				sel.removeAllRanges();
 				sel.addRange(range);
-			}
-			else if (e.key === 'ArrowDown') {
+			} else if (e.key === 'ArrowDown') {
 				e.preventDefault();
 				if (commands.length === 0) return; // no history
 				commandIndex++;
@@ -343,13 +348,14 @@
 							<p><code>help</code> display this help message</p>
 							<p><code>about</code> information about me</p>
 							<p><code>ls</code> list connections</p>
-							<p><code>ferminotify</code> / <code>fn</code> connect to Fermi Notify [<code>-blank</code>]</p>
+							<p><code>ferminotify</code> / <code>fn</code> connect to Fermi Notify [<code>-blank</code>, <code>-status</code>]</p>
 							<p><code>uni</code> connect to my uni tools [<code>-blank</code>]</p>
 							<p><code>cfu</code> get my current cfu count</p>
 							<p><code>ig</code> my Instagram [<code>-blank</code>]</p>
 							<p><code>gh</code> my GitHub [<code>-blank</code>]</p>
 							<p><code>li</code> my LinkedIn [<code>-blank</code>]</p>
 							<p><code>sudo</code> get superuser privileges [command [arg...]]</p>
+							<p><code>info</code> your system information</p>
 							<p><code>env</code> display .env file</p>
 							<p><code>echo [text]</code> display text</p>
 							<p><code>clear</code> clear the terminal</p>
