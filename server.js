@@ -72,9 +72,8 @@ app.post('/api/sudo', (req, res) => {
 	const correctPassword = process.env.SUDO_PASSWORD;
 
 	if (password === correctPassword) {
-		switch (arg) {
-			case 'ls':
-				var output = `
+		if (arg === 'ls') {
+			var output = `
 <p>Available connections:<br/>	
 <code>fn</code> / <code>ferminotify</code>: Fermi Notify<br/>
 <code>uni</code>: Uni tools<br/>
@@ -83,23 +82,58 @@ app.post('/api/sudo', (req, res) => {
 <code>li</code>: LinkedIn<br/>
 <code>fdb</code>: FermiDB<br/>
 Use [command] <code>-blank</code> to open in a new tab.</p>`
-				break;
-			case 'fdb':
-				var output = 'Opening FermiDB...';
-				var redirect = 'https://fdb.lkev.in';
-				break;
-			case 'fdb -blank':
-				var output = 'Opening FermiDB in a new tab...';
-				var redirect = 'https://fdb.lkev.in';
-				var target = '_blank';
-				break;
-			default:
-				res.json({ valid: true, output: 'sudo: unknown command' + (arg ? `: ${arg}` : ''), redirect: null, target: null });
-				return;
+		} else if (arg && arg.startsWith('motd ')) {
+			let flag = arg.substring(5); // Remove 'motd ' prefix
+			if (flag.startsWith('-add ')) {
+				let newMotd = flag.substring(5); // Remove '-add ' prefix
+				fs.appendFileSync('motd.txt', newMotd + '\n', 'utf-8');
+				var output = 'MOTD updated. ' + newMotd;
+			} else if (flag.startsWith('-rm ')) {
+				let line = parseInt(flag.substring(4)); // Remove '-rm ' prefix
+				if (!isNaN(line)) {
+					let motdLines = fs.readFileSync('motd.txt', 'utf-8').split('\n');
+					if (line >= 1 && line <= motdLines.length) {
+						motdLines.splice(line - 1, 1);
+						fs.writeFileSync('motd.txt', motdLines.join('\n'), 'utf-8');
+						var output = 'MOTD line ' + line + ' removed.';
+					} else {
+						var output = 'Invalid line number.';
+					}
+				} else {
+					var output = 'Invalid line number.';
+				}
+			} else if (flag === '-clear') {
+				fs.writeFileSync('motd.txt', '', 'utf-8');
+				var output = 'MOTD cleared.';
+			} else {
+				var output = 'Invalid motd flag.';
+			}
+		} else if (arg === 'fdb') {
+			var output = 'Opening FermiDB...';
+			var redirect = 'https://fdb.lkev.in';
+		} else if (arg === 'fdb -blank') {
+			var output = 'Opening FermiDB in a new tab...';
+			var redirect = 'https://fdb.lkev.in';
+			var target = '_blank';
+		} else {
+			res.json({ valid: true, output: 'sudo: unknown command' + (arg ? `: ${arg}` : ''), redirect: null, target: null });
+			return;
 		}
 		res.json({ valid: true, output, redirect, target });
 	} else {
 		res.json({ valid: false });
+	}
+});
+
+app.get('/api/motd', (req, res) => {
+	try {
+		const content = fs.existsSync('motd.txt') ? fs.readFileSync('motd.txt', 'utf-8') : '';
+		const lines = content.split(/\r?\n/).filter(line => line.trim() !== '');
+    console.log(lines);
+		res.json({ success: true, motd: lines });
+	} catch (err) {
+		console.error('Error reading MOTD:', err);
+		res.status(500).json({ success: false, error: err.message });
 	}
 });
 

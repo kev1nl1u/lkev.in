@@ -20,6 +20,7 @@
 			<p><span class="date"></span> @ <span class="user-agent"></span> <span class="ip"></span> <span class="location"></span></p>
 			<p>* Last login <span class="last-date"></span> @ <span class="last-user-agent"></span> <span class="last-ip"></span> <span class="last-location"></span></p>
 			<br/>
+			<p class="MOTD"></p>
 			<p>Type <code>help</code> to get started.</p>
 		</div>
 		<div class="commands">
@@ -114,6 +115,20 @@
 				lastLocationEl.innerHTML = lastLocationValue
 					? `<span class="material-symbols-outlined">location_on</span> ${lastLocationValue}`
 					: `<span class="material-symbols-outlined">not_listed_location</span>`;
+			}
+
+			// MOTD
+			try {
+				const response = await fetch('/api/motd');
+				if (!response.ok) throw new Error(response.statusText);
+				const data = await response.json();
+				if (data.success && data.motd && data.motd.length > 0) {
+					const motdHtml = data.motd.map((line, index) => `* ${line}<br/>`).join('');
+					const motdEl = document.querySelector('.MOTD');
+					if (motdEl) motdEl.innerHTML = motdHtml + '<br/>';
+				}
+			} catch (err) {
+				console.error('Error fetching MOTD:', err);
 			}
 
 			// Save login info to backend
@@ -271,13 +286,33 @@
 									}
 								}
 								}
+								// If the sudo command was a motd change, refresh header MOTD
+								const sudoArg = command.slice(5).trim();
+								if (sudoArg && sudoArg.toLowerCase().startsWith('motd')) {
+									// refresh header MOTD by fetching /api/motd
+									try {
+										const hdrRes = await fetch('/api/motd');
+										if (hdrRes.ok) {
+											const hdrData = await hdrRes.json();
+											if (hdrData.success && hdrData.motd && hdrData.motd.length > 0) {
+												const motdEl = document.querySelector('.MOTD');
+												if (motdEl) motdEl.innerHTML = hdrData.motd.map(line => `* ${line}<br/>`).join('') + '<br/>';
+											} else {
+												const motdEl = document.querySelector('.MOTD');
+												if (motdEl) motdEl.innerHTML = '';
+											}
+										}
+									} catch (e) {
+										console.error('Error refreshing header MOTD:', e);
+									}
+								}
 							} else {
 								printError(command, 'authentication failure');
 							}
 							printNewPrompt();
 							},
 							error: () => {
-							printError(command, 'error verifying password');
+							printError(command, 'generic error');
 							printNewPrompt();
 							}
 						});
@@ -381,9 +416,10 @@
 						<p>${domain} ${userAgent} Bash, version 1.0-release<br/>These shell commands are defined internally. Type 'help' to see this list.</p>
 						<p><strong>Core commands:</strong></p>
 						<div class="command-help-list">
-							<p><code>help</code> display this help message</p>
+							<p><code>help</code> display this help message [command]</p>
 							<p><code>about</code> information about me</p>
 							<p><code>sudo</code> get superuser privileges [command [arg...]]</p>
+							<p><code>motd</code> view the message of the day</p>
 							<p><code>echo</code> display text [text]</p>
 							<p><code>clear</code> clear the terminal</p>
 							<p><code>exit</code> exit the terminal</p>
@@ -613,6 +649,30 @@
 						printError('weather', 'could not fetch weather data');
 					}
 
+				}
+			},
+
+			motd: {
+				acceptsArgs: false,
+				description: 'display message of the day',
+				execute: async (args) => {
+					if (!validateNoArgs('motd', args)) return;
+					try {
+						const response = await fetch('/api/motd');
+						if (!response.ok) throw new Error(response.statusText);
+						const data = await response.json();
+						if (data.success && data.motd && data.motd.length > 0) {
+							let motdHtml = '<p>';
+							motdHtml += data.motd.map((line, index) => `${index + 1}. ${line}<br/>`).join('');
+							motdHtml += '</p>';
+							printOutput(motdHtml);
+						} else {
+							printOutput('<p>No message of the day set.</p>');
+						}
+					} catch (err) {
+						console.error('Error fetching MOTD:', err);
+						printError('motd', 'could not fetch message of the day');
+					}
 				}
 			},
 
