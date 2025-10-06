@@ -131,7 +131,6 @@ app.get('/api/motd', (req, res) => {
 	try {
 		const content = fs.existsSync('motd.txt') ? fs.readFileSync('motd.txt', 'utf-8') : '';
 		const lines = content.split(/\r?\n/).filter(line => line.trim() !== '');
-    console.log(lines);
 		res.json({ success: true, motd: lines });
 	} catch (err) {
 		console.error('Error reading MOTD:', err);

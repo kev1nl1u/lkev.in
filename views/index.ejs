@@ -282,15 +282,14 @@
 				if(commands.length === 0 || commands[commands.length - 1] !== command) commands.push(command);
 				commandIndex = commands.length;
 				$(this).removeClass("active");
+				document.activeElement && document.activeElement.blur && document.activeElement.blur();
 				await handleCommand(command);
-				// If command is `info server` or `info ... live` we keep the live panel active and do not create a new prompt
-				const cmdLower = command.toLowerCase();
-				const isInfoServer = cmdLower === 'info server' || cmdLower.startsWith('info server ') ;
-				const isInfoLive = cmdLower.startsWith('info') && cmdLower.includes('live');
-				if (isInfoServer || isInfoLive) {
-					// leave focus on the document so global Ctrl+C can be used to stop live
-					document.activeElement && document.activeElement.blur && document.activeElement.blur();
-				} else if (!command.startsWith("sudo") || command == "sudo") {
+				if (command.startsWith("info server") || command.startsWith("info server ")) {
+					// keep the prompt disabled if server live updates are running
+					if (window.__serverInfoInterval && window.__serverInfoInterval.id) {
+						return;
+					}
+				}else if (!command.startsWith("sudo") || command == "sudo") {
 					printNewPrompt();
 				} else {
 					printOutput(`<div class="line">[sudo] password:
@@ -565,11 +564,9 @@
 				execute: async (args) => {
 					// Decide what the user requested:
 					// - `info` => client-only
-					// - `info server` => start server live updates (default live)
-					// - `info live` => server live updates as well
+					// - `info server` => start server live updates
 					const argsLower = (args || []).map(a => a.toLowerCase());
 					const wantsServer = argsLower.includes('server') || argsLower.includes('srv');
-					const wantsLive = argsLower.includes('live') || wantsServer; // server implies live by default
 
 					// Prepare client-side data (same as before)
 					const screenRes = `${window.screen.width}x${window.screen.height}`;
@@ -612,7 +609,7 @@
 					}
 
 					// If user asked for server info, fetch and display it
-					if (wantsServer || wantsLive) {
+					if (wantsServer) {
 						// create a container for server info and keep its id
 						const containerId = `server-info-${Date.now()}`;
 						printOutput(`<div id="${containerId}" class="server-info"></div>`);
@@ -639,7 +636,7 @@
 								<p><strong>Server System Information (as of ${new Date(data.timestamp).toLocaleString()}):</strong><br/>
 								CPU: ${cpu.manufacturer || ''} ${cpu.brand || ''} (${cpu.cores || cpu.physicalCores || 'N/A'} cores)<br/>
 								Load: ${load.currentLoad ? load.currentLoad.toFixed(1) + '%' : (load.avgLoad || 'N/A')}<br/>
-								Memory: ${mem.used ? Math.round((mem.used / mem.total) * 100) + '% used' : 'N/A'} (${mem.used || 'N/A'} / ${mem.total || 'N/A'})<br/>
+								Memory: ${mem.used ? `${Math.round((mem.used / mem.total) * 100)}% used (${(mem.used / 1073741824).toFixed(2)} GB / ${(mem.total / 1073741824).toFixed(2)} GB)` : 'N/A'}<br/>
 								Uptime: ${Math.floor((data.uptime || 0) / 3600)}h ${Math.floor(((data.uptime || 0) % 3600) / 60)}m<br/>
 								Temperature: ${temp}<br/>
 								<div>${perCore}</div>
@@ -661,16 +658,13 @@
 
 						await fetchAndRender();
 
-						// If live requested, set an interval and store it globally so user can stop
-						if (wantsLive) {
-							// clear previous if exists
-							if (window.__serverInfoInterval) clearInterval(window.__serverInfoInterval.id);
-							const id = setInterval(fetchAndRender, 2000);
-							window.__serverInfoInterval = { id, containerId };
-							const infoNote = document.createElement('div');
-							infoNote.innerHTML = `<p>Live updates every 2s. Use <code>CTRL+C</code> to stop.</p>`;
-							document.getElementById(containerId).appendChild(infoNote);
-						}
+						// clear previous if exists
+						if (window.__serverInfoInterval) clearInterval(window.__serverInfoInterval.id);
+						const id = setInterval(fetchAndRender, 2000);
+						window.__serverInfoInterval = { id, containerId };
+						const infoNote = document.createElement('div');
+						infoNote.innerHTML = `<p>Live updates every 2s. Use <code>CTRL+C</code> to stop.</p>`;
+						document.getElementById(containerId).appendChild(infoNote);
 					}
 				}
 			},
