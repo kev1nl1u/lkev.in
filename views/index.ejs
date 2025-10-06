@@ -219,10 +219,58 @@
 			}
 		});
 
+		// Global handler: allow Ctrl+C anywhere on the page to stop live server updates
+		document.addEventListener('keydown', function(e) {
+			if ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey)) {
+				e.preventDefault();
+				if (window.__serverInfoInterval && window.__serverInfoInterval.id) {
+					clearInterval(window.__serverInfoInterval.id);
+					const cid = window.__serverInfoInterval.containerId;
+					if (cid) {
+						const el = document.getElementById(cid);
+						if (el) {
+							const note = document.createElement('div');
+							note.innerHTML = `<p>Live updates stopped (Ctrl+C).</p>`;
+							el.appendChild(note);
+						}
+					}
+					window.__serverInfoInterval = null;
+					printNewPrompt();
+				}
+			}
+		});
+
 		var commands = []; // TODO save in localStorage
 		var commandIndex = 0; // points at the next position to insert (empty)
 
 		$(document).on('keydown', '.command-input.active', async function(e) {
+			// Allow Ctrl+C to stop live updates or cancel the current command
+			if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
+				e.preventDefault();
+				// If live server updates are running, stop them
+				if (window.__serverInfoInterval && window.__serverInfoInterval.id) {
+					clearInterval(window.__serverInfoInterval.id);
+					const cid = window.__serverInfoInterval.containerId;
+					if (cid) {
+						const el = document.getElementById(cid);
+						if (el) {
+							const note = document.createElement('div');
+							note.innerHTML = `<p>Live updates stopped (Ctrl+C).</p>`;
+							el.appendChild(note);
+						}
+					}
+					window.__serverInfoInterval = null;
+					printOutput('<p>Live server updates stopped (Ctrl+C).</p>');
+					printNewPrompt();
+					return;
+				}
+				// Otherwise, cancel current typed command (like terminal behavior)
+				const el = this;
+				$(el).removeAttr('contenteditable').removeClass('active');
+				printError('', 'command canceled');
+				printNewPrompt();
+				return;
+			}
 			if (e.key === 'Enter') {
 				e.preventDefault();
 				$(this).removeAttr("contenteditable");
@@ -235,8 +283,16 @@
 				commandIndex = commands.length;
 				$(this).removeClass("active");
 				await handleCommand(command);
-				if (!command.startsWith("sudo") || command == "sudo") printNewPrompt();
-				else{
+				// If command is `info server` or `info ... live` we keep the live panel active and do not create a new prompt
+				const cmdLower = command.toLowerCase();
+				const isInfoServer = cmdLower === 'info server' || cmdLower.startsWith('info server ') ;
+				const isInfoLive = cmdLower.startsWith('info') && cmdLower.includes('live');
+				if (isInfoServer || isInfoLive) {
+					// leave focus on the document so global Ctrl+C can be used to stop live
+					document.activeElement && document.activeElement.blur && document.activeElement.blur();
+				} else if (!command.startsWith("sudo") || command == "sudo") {
+					printNewPrompt();
+				} else {
 					printOutput(`<div class="line">[sudo] password:
 <div class="password-input active" contenteditable="true" spellcheck="false" autofocus autocomplete='off' autocapitalize="off" autocorrect="off"></div></div>`
 					);
@@ -435,7 +491,7 @@
 						</div>
 						<p><strong>Utility:</strong></p>
 						<div class="command-help-list">
-							<p><code>info</code> your system information</p>
+							<p><code>info</code> system information [<code>server</code>]</p>
 							<p><code>weather</code> weather in your location [location]</p>
 							<p><code>cfu</code> get my current cfu count</p>
 							<p><code>env</code> display .env file</p>
@@ -504,12 +560,18 @@
 			},
 
 			info: {
-				acceptsArgs: false,
-				description: 'your system information',
+				acceptsArgs: true,
+				description: 'your system information (use `info server` or `info live` to get server metrics)',
 				execute: async (args) => {
-					if (!validateNoArgs('info', args)) return;
+					// Decide what the user requested:
+					// - `info` => client-only
+					// - `info server` => start server live updates (default live)
+					// - `info live` => server live updates as well
+					const argsLower = (args || []).map(a => a.toLowerCase());
+					const wantsServer = argsLower.includes('server') || argsLower.includes('srv');
+					const wantsLive = argsLower.includes('live') || wantsServer; // server implies live by default
 
-					// Prepare data
+					// Prepare client-side data (same as before)
 					const screenRes = `${window.screen.width}x${window.screen.height}`;
 					const colorDepth = `${window.screen.colorDepth}-bit`;
 					const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -522,30 +584,94 @@
 					const dnt = navigator.doNotTrack == '1' ? 'Yes' : 'No';
 					const online = navigator.onLine ? 'Online' : 'Offline';
 
-					// Output basic info
-					printOutput(`
-						<p><strong>Your System Information:</strong><br/>
-						OS: ${getOS()}<br/>
-						Browser: ${getBrowser()}<br/>
-						User Agent: ${userAgent}<br/>
-						Screen Resolution: ${screenRes}<br/>
-						Color Depth: ${colorDepth}<br/>
-						Platform: ${platform}<br/>
-						CPU Cores: ${cpuCores}<br/>
-						Device Memory: ${memory}<br/>
-						Language: ${language}<br/>
-						Timezone: ${timezone}<br/>
-						Cookies Enabled: ${cookiesEnabled}<br/>
-						JavaScript Enabled: ${jsEnabled}<br/>
-						Do Not Track: ${dnt}<br/>
-						Online Status: ${online}<br/>
-						IP Address: <span class="ip">fetching...</span><br/>
-						Location: <span class="location">fetching...</span></p>
-					`);
+					// If user didn't request server info, output basic client info
+					if (!wantsServer) {
+						printOutput(`
+							<p><strong>Your System Information:</strong><br/>
+							OS: ${getOS()}<br/>
+							Browser: ${getBrowser()}<br/>
+							User Agent: ${userAgent}<br/>
+							Screen Resolution: ${screenRes}<br/>
+							Color Depth: ${colorDepth}<br/>
+							Platform: ${platform}<br/>
+							CPU Cores: ${cpuCores}<br/>
+							Device Memory: ${memory}<br/>
+							Language: ${language}<br/>
+							Timezone: ${timezone}<br/>
+							Cookies Enabled: ${cookiesEnabled}<br/>
+							JavaScript Enabled: ${jsEnabled}<br/>
+							Do Not Track: ${dnt}<br/>
+							Online Status: ${online}<br/>
+							IP Address: <span class="ip">fetching...</span><br/>
+							Location: <span class="location">fetching...</span></p>
+						`);
 
-					// Fetch IP and location
-					let ip = await getIP(document.querySelector('.commands .output .ip'));
-					await getLocation(ip, document.querySelector('.commands .output .location'));
+						// Fetch IP and location for client info
+						let ip = await getIP(document.querySelector('.commands .output .ip'));
+						await getLocation(ip, document.querySelector('.commands .output .location'));
+					}
+
+					// If user asked for server info, fetch and display it
+					if (wantsServer || wantsLive) {
+						// create a container for server info and keep its id
+						const containerId = `server-info-${Date.now()}`;
+						printOutput(`<div id="${containerId}" class="server-info"></div>`);
+
+						const el = document.createElement('div');
+						el.innerHTML = '<p>Loading server info...</p>';
+						el.classList.add('info-container');
+						document.getElementById(containerId).appendChild(el);
+
+						const renderServer = (data) => {
+							if (!data) {
+								el.innerHTML = '<p>Unable to fetch server info.</p>';
+								return;
+							}
+
+							const cpu = data.cpu || {};
+							const load = data.load || {};
+							const mem = data.memory || {};
+							const temp = data.temperature && data.temperature.main ? `${data.temperature.main} °C` : (data.temperature ? JSON.stringify(data.temperature) : 'N/A');
+
+							const perCore = (load.cpus && load.cpus.length) ? load.cpus.map((c, i) => `Core ${i}: ${c.load.toFixed(1)}%`).join('<br/>') : '';
+
+							el.innerHTML = `
+								<p><strong>Server System Information (as of ${new Date(data.timestamp).toLocaleString()}):</strong><br/>
+								CPU: ${cpu.manufacturer || ''} ${cpu.brand || ''} (${cpu.cores || cpu.physicalCores || 'N/A'} cores)<br/>
+								Load: ${load.currentLoad ? load.currentLoad.toFixed(1) + '%' : (load.avgLoad || 'N/A')}<br/>
+								Memory: ${mem.used ? Math.round((mem.used / mem.total) * 100) + '% used' : 'N/A'} (${mem.used || 'N/A'} / ${mem.total || 'N/A'})<br/>
+								Uptime: ${Math.floor((data.uptime || 0) / 3600)}h ${Math.floor(((data.uptime || 0) % 3600) / 60)}m<br/>
+								Temperature: ${temp}<br/>
+								<div>${perCore}</div>
+								</p>
+							`;
+						};
+
+						// fetch once
+						const fetchAndRender = async () => {
+							try {
+								const resp = await fetch('/api/sysinfo/cpu');
+								if (!resp.ok) throw new Error(resp.statusText);
+								const data = await resp.json();
+								renderServer(data);
+							} catch (e) {
+								el.innerHTML = `<p>Error fetching server info: ${e.message}</p>`;
+							}
+						};
+
+						await fetchAndRender();
+
+						// If live requested, set an interval and store it globally so user can stop
+						if (wantsLive) {
+							// clear previous if exists
+							if (window.__serverInfoInterval) clearInterval(window.__serverInfoInterval.id);
+							const id = setInterval(fetchAndRender, 2000);
+							window.__serverInfoInterval = { id, containerId };
+							const infoNote = document.createElement('div');
+							infoNote.innerHTML = `<p>Live updates every 2s. Use <code>CTRL+C</code> to stop.</p>`;
+							document.getElementById(containerId).appendChild(infoNote);
+						}
+					}
 				}
 			},
 

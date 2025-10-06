@@ -20,6 +20,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set("view engine", "ejs");
 
 app.use(express.json());
+const si = require('systeminformation');
+const os = require('os');
 
 app.get('/', async (req, res) => {
     var lastLogin = await getLastLoginInfo();
@@ -147,6 +149,54 @@ app.get('/ig', (req, res) => {
 
 app.get('/li', (req, res) => {
 	res.redirect('https://linkedin.com/in/liuck');
+});
+
+// GET /api/sysinfo/cpu - returns live CPU/memory/load/temperature data
+app.get('/api/sysinfo/cpu', async (req, res) => {
+	try {
+		// Try to get rich info from systeminformation
+		const [cpu, currentLoad, mem, osInfo, cpuTemp] = await Promise.all([
+			si.cpu(),
+			si.currentLoad(),
+			si.mem(),
+			si.time(),
+			si.cpuTemperature()
+		]).catch(() => null);
+
+		// Fallbacks using os module if systeminformation failed
+		const fallbackLoad = os.loadavg ? os.loadavg() : null;
+		const fallbackMem = {
+			total: os.totalmem(),
+			free: os.freemem()
+		};
+
+		const result = {
+			success: true,
+			timestamp: new Date().toISOString(),
+			cpu: cpu || { manufacturer: os.type(), brand: os.platform(), cores: os.cpus().length },
+			load: currentLoad || { avgload: fallbackLoad, raw: os.cpus().map(c => c.times) },
+			memory: mem || fallbackMem,
+			uptime: os.uptime(),
+			temperature: (cpuTemp && cpuTemp.main) ? cpuTemp : null
+		};
+
+		res.json(result);
+	} catch (err) {
+		console.error('Error gathering sysinfo:', err);
+		// Minimal fallback
+		try {
+			res.json({
+				success: false,
+				error: err.message,
+				timestamp: new Date().toISOString(),
+				loadavg: os.loadavg(),
+				memory: { total: os.totalmem(), free: os.freemem() },
+				uptime: os.uptime()
+			});
+		} catch (e) {
+			res.status(500).json({ success: false, error: 'Unable to gather system information' });
+		}
+	}
 });
 
 app.listen(PORT, () => {
