@@ -156,7 +156,7 @@
 		// =============================
 		async function getIP(ipEl) {
 			try {
-				const response = await fetch('https://api.ipify.org?format=json');
+				const response = await fetch('https://ipinfo.io/json');
 				if (!response.ok) throw new Error(response.statusText);
 				const data = await response.json();
 				const ip = data.ip || null;
@@ -491,7 +491,7 @@
 						<p><strong>Utility:</strong></p>
 						<div class="command-help-list">
 							<p><code>info</code> system information [<code>server</code>]</p>
-							<p><code>weather</code> weather in your location [location]</p>
+							<p><code>weather</code> weather in your location [location, <code>-gps</code>]</p>
 							<p><code>cfu</code> get my current cfu count</p>
 							<p><code>env</code> display .env file</p>
 						</div>
@@ -673,18 +673,67 @@
 				acceptsArgs: true,
 				description: 'weather in your location [location]',
 				execute: async (args) => {
-					let locationInput = args.join(' ');
+					// Support: weather -gps  -> ask for browser geolocation
+					//          weather [location] -> geocode by name
+					//          weather (no args) -> use IP-based location
+					const argsLower = (args || []).map(a => a.toLowerCase());
+					const wantsGps = argsLower.includes('-gps');
+
+					// If -gps is present, remove it from location input
+					const filteredArgs = args.filter(a => a.toLowerCase() !== '-gps');
+					let locationInput = filteredArgs.join(' ');
 					let lat, lon, displayLocation;
 
-					// Step 1: Get coordinates from location name OR use IP
+					// Step 1: Get coordinates from GPS, location name, or IP
 					try {
-						if (!locationInput) {
-							const locRes = await fetch('https://ipapi.co/json/');
-							const locData = await locRes.json();
-							lat = locData.latitude;
-							lon = locData.longitude;
-							displayLocation = `${locData.city}, ${locData.country_name}`;
-						} else {
+						if (wantsGps) {
+							// Ask for browser geolocation permission
+							if (!('geolocation' in navigator)) {
+								printError('weather', 'GPS not available in this browser');
+								return;
+							}
+
+							const getPosition = () => new Promise((resolve, reject) => {
+								const timeout = 30000; // 30s
+								const timer = setTimeout(() => reject({ code: 3, message: 'Geolocation timeout' }), timeout);
+								navigator.geolocation.getCurrentPosition((pos) => {
+									clearTimeout(timer);
+									resolve(pos);
+								}, (err) => {
+									clearTimeout(timer);
+									// err.code follows the GeolocationPositionError spec (1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT)
+									reject(err);
+								}, { enableHighAccuracy: true, maximumAge: 60 * 1000, timeout: 30000 });
+							});
+
+							try {
+								const pos = await getPosition();
+								lat = pos.coords.latitude;
+								lon = pos.coords.longitude;
+								displayLocation = `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+							} catch (geErr) {
+								// Better error messages for debugging
+								console.error('Geolocation error object:', geErr);
+								if (geErr && typeof geErr.code === 'number') {
+									switch (geErr.code) {
+										case 1:
+											printError('weather', 'GPS authorization not given (permission denied)');
+											break;
+										case 2:
+											printError('weather', 'GPS position unavailable');
+											break;
+										case 3:
+											printError('weather', 'GPS request timed out');
+											break;
+										default:
+											printError('weather', `Geolocation error: ${geErr.message || geErr}`);
+									}
+								} else {
+									printError('weather', `Geolocation error: ${geErr && geErr.message ? geErr.message : geErr}`);
+								}
+								return;
+							}
+						} else if (locationInput) {
 							const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationInput)}`);
 							const geoData = await geoRes.json();
 							if (!geoData.results || geoData.results.length === 0) throw new Error("Location not found.");
@@ -692,6 +741,12 @@
 							lat = place.latitude;
 							lon = place.longitude;
 							displayLocation = `${place.name}, ${place.country}`;
+						} else {
+							const locRes = await fetch('https://ipinfo.io/json');
+							const locData = await locRes.json();
+							[lat, lon] = locData.loc.split(',');
+
+							displayLocation = `${locData.city}, ${locData.country}`;
 						}
 					} catch (err) {
 						printError('weather [location]', 'Could not resolve location.');
