@@ -710,7 +710,19 @@
 								const pos = await getPosition();
 								lat = pos.coords.latitude;
 								lon = pos.coords.longitude;
-								displayLocation = `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+								// get gps location using coordinates
+								const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+									{ headers: { 'User-Agent': `${domain} (${window.location.href})`, 'Accept-Language': `${navigator.language}` } }
+								);
+								const geoData = await geoRes.json();
+								if (geoData && geoData.address) {
+									const addr = geoData.address;
+									displayLocation = [addr.city || addr.town || addr.village || addr.hamlet || addr.county || '', addr.state || '', addr.country || '']
+										.filter(Boolean)
+										.join(', ');
+								} else {
+									displayLocation = `Lat ${lat.toFixed(2)}, Lon ${lon.toFixed(2)}`;
+								}
 							} catch (geErr) {
 								// Better error messages for debugging
 								console.error('Geolocation error object:', geErr);
