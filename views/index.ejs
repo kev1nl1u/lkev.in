@@ -710,39 +710,7 @@
 								const pos = await getPosition();
 								lat = pos.coords.latitude;
 								lon = pos.coords.longitude;
-								// Try reverse geocoding to get a human-friendly location (city, country)
-								try {
-									// First try Open-Meteo reverse geocoding
-									let revRes = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&count=1`);
-									let revData = revRes.ok ? await revRes.json() : null;
-
-									if (!revData || revData.error || !revData.results || revData.results.length === 0) {
-										// fallback to Nominatim (OpenStreetMap)
-										try {
-											const nomUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=10&addressdetails=1`;
-											const nomRes = await fetch(nomUrl);
-											if (nomRes.ok) {
-												const nomData = await nomRes.json();
-												// try to pick a good display name from address
-												const addr = nomData.address || {};
-												const nameParts = [addr.city || addr.town || addr.village || addr.hamlet, addr.state || addr.county, addr.country].filter(Boolean);
-												if (nameParts.length > 0) displayLocation = nameParts.join(', ');
-												else displayLocation = nomData.display_name || `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-											} else {
-												displayLocation = `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-											}
-										} catch (nomErr) {
-											console.error('Nominatim reverse geocoding failed:', nomErr);
-											displayLocation = `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-										}
-									} else {
-										const place = revData.results[0];
-										displayLocation = `${place.name || ''}${place.admin1 ? ', ' + place.admin1 : ''}${place.country ? ', ' + place.country : ''}`.replace(/^,\s*/, '');
-									}
-								} catch (e) {
-									console.error('Reverse geocoding failed:', e);
-									displayLocation = `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-								}
+								displayLocation = `GPS: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
 							} catch (geErr) {
 								// Better error messages for debugging
 								console.error('Geolocation error object:', geErr);
