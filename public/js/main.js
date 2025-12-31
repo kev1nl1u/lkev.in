@@ -540,7 +540,9 @@ async function handleCommand(input) {
 	window.scrollTo(0, document.body.scrollHeight);
 }
 
-async function handleSudoAuth(originalCommand, password) {
+async function handleSudoAuth(originalCommand, password, attempt = 1) {
+	const MAX_ATTEMPTS = 3;
+	
 	try {
 		const sudoArg = originalCommand.slice(5).trim();
 		const { valid, output, redirect, target, clientCommand } = await (await fetch('/api/sudo', {
@@ -549,12 +551,19 @@ async function handleSudoAuth(originalCommand, password) {
 			body: JSON.stringify({ password, arg: sudoArg })
 		})).json();
 
-		if (!valid) return printError(originalCommand, 'authentication failure');
+		if (!valid) {
+			if (attempt < MAX_ATTEMPTS) {
+				printP('Sorry, try again.');
+				setupPasswordInput(originalCommand, attempt + 1);
+			} else {
+				printP(`sudo: ${MAX_ATTEMPTS} incorrect password attempts`);
+				printNewPrompt();
+			}
+			return;
+		}
 
-		const firstWord = sudoArg.split(' ')[0].toLowerCase();
-
-		// Server indicated this should be handled client-side, or we recognize it as a client command
-		if (clientCommand || getClientCommands().includes(firstWord)) {
+		// Server indicated this should be handled client-side
+		if (clientCommand) {
 			await handleCommand(sudoArg);
 		} else if (output) {
 			printP(output);
@@ -578,10 +587,11 @@ async function handleSudoAuth(originalCommand, password) {
 // =============================
 // Password Input Handler
 // =============================
-function setupPasswordInput(originalCommand) {
-	printOutput(`<div class="line">[sudo] password:
-		<div class="password-input active" contenteditable="true" spellcheck="false" autofocus autocomplete="off" autocapitalize="off" autocorrect="off"></div>
-	</div>`);
+function setupPasswordInput(originalCommand, attempt = 1) {
+	const line = document.createElement('div');
+	line.className = 'line';
+	line.innerHTML = `[sudo] password: <span class="password-input active" contenteditable="true" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"></span>`;
+	$('.commands').appendChild(line);
 	
 	const input = $('.password-input.active');
 	input.focus();
@@ -596,11 +606,12 @@ function setupPasswordInput(originalCommand) {
 	input.addEventListener('keydown', async e => {
 		if (e.key === 'Enter') {
 			e.preventDefault(); deactivate(input);
-			if (!pwd) { printError(originalCommand, 'no password entered'); printNewPrompt(); return; }
-			await handleSudoAuth(originalCommand, pwd);
+			if (!pwd) { printError('sudo', 'no password entered'); printNewPrompt(); return; }
+			await handleSudoAuth(originalCommand, pwd, attempt);
 		} else if (e.key === 'c' && (e.ctrlKey || e.metaKey)) {
 			e.preventDefault(); deactivate(input);
-			printError(originalCommand, 'command canceled'); printNewPrompt();
+			printP('^C');
+			printNewPrompt();
 		}
 	});
 }

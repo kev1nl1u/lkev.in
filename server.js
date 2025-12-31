@@ -133,6 +133,16 @@ app.post('/api/sudo', (req, res) => {
   const hasBlank = rest.includes('-blank');
   const restArgs = rest.filter(a => a !== '-blank').join(' ');
 
+  // MOTD modification commands (server-only, must check before client delegation)
+  if (cmdLower === 'motd' && restArgs) {
+    const [flag, ...flagArgs] = restArgs.split(' ');
+    const handler = MOTD_HANDLERS[flag];
+    return res.json({ 
+      valid: true, 
+      output: handler ? handler(flagArgs.join(' ')) : 'Invalid motd flag. Use: -add [text], -rm [line], -clear'
+    });
+  }
+
   // Client-side commands - delegate to frontend
   if (isClientCommand(cmdLower)) {
     return res.json({ valid: true, output: '', clientCommand: true });
@@ -146,16 +156,6 @@ app.post('/api/sudo', (req, res) => {
       output: `Opening ${link.name}...${hasBlank ? ' (new tab)' : ''}`,
       redirect: link.url,
       target: hasBlank ? '_blank' : '_self'
-    });
-  }
-
-  // MOTD modification commands
-  if (cmdLower === 'motd' && restArgs) {
-    const [flag, ...flagArgs] = restArgs.split(' ');
-    const handler = MOTD_HANDLERS[flag];
-    return res.json({ 
-      valid: true, 
-      output: handler ? handler(flagArgs.join(' ')) : 'Invalid motd flag. Use: -add [text], -rm [line], -clear'
     });
   }
 
