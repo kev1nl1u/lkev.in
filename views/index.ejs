@@ -330,7 +330,7 @@
 							success: async (response) => {
 							if (response.valid) {
 								const argCommand = command.slice(5).trim().split(' ')[0].toLowerCase();
-								if (['clear', 'about', 'echo', 'cfu', 'ig', 'gh', 'li', 'fn', 'ferminotify', 'uni'].includes(argCommand)) {
+								if (['clear', 'about', 'echo', 'cfu', 'ig', 'gh', 'li', 'fn', 'ferminotify', 'uni', 'adsb'].includes(argCommand)) {
 								await handleCommand(command.slice(5).trim());
 								} else {
 								if (response.output && response.output.length > 0) {
@@ -483,6 +483,7 @@
 						<div class="command-help-list">
 							<p><code>ls</code> list connections</p>
 							<p><code>ferminotify</code> / <code>fn</code> connect to Fermi Notify [<code>-blank</code>, <code>-status</code>]</p>
+							<p><code>adsb</code> connect to ADS-B Receiver Map [<code>-blank</code>]</p>
 							<p><code>uni</code> connect to my uni tools [<code>-blank</code>]</p>
 							<p><code>ig</code> my Instagram [<code>-blank</code>]</p>
 							<p><code>gh</code> my GitHub [<code>-blank</code>]</p>
@@ -528,6 +529,7 @@
 					printOutput(`
 						<p>Available connections:<br/>	
 						<code>fn</code> / <code>ferminotify</code>: Fermi Notify<br/>
+						<code>adsb</code>: ADS-B Receiver Map<br/>
 						<code>uni</code>: Uni tools<br/>
 						<code>ig</code>: Instagram<br/>
 						<code>gh</code>: GitHub<br/>
@@ -900,6 +902,7 @@
 		const linkConfig = {
 			fn: { url: 'https://fn.lkev.in', name: 'Fermi Notify' },
 			ferminotify: { url: 'https://fn.lkev.in', name: 'Fermi Notify' },
+			adsb: { url: 'https://adsb.lkev.in', name: 'ADSB Receiver Map' },
 			uni: { url: 'https://unipv.lkev.in', name: 'Uni tools' },
 			ig: { url: 'https://lkev.in/ig', name: 'Instagram' },
 			gh: { url: 'https://lkev.in/gh', name: 'GitHub' },

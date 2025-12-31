@@ -78,6 +78,7 @@ app.post('/api/sudo', (req, res) => {
 			var output = `
 <p>Available connections:<br/>	
 <code>fn</code> / <code>ferminotify</code>: Fermi Notify<br/>
+<code>adsb</code>: ADS-B Receiver Map<br/>
 <code>uni</code>: Uni tools<br/>
 <code>ig</code>: Instagram<br/>
 <code>gh</code>: GitHub<br/>
