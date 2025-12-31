@@ -1,0 +1,70 @@
+{
+  "server": {
+    "port": 3000,
+    "motdFile": "motd.txt"
+  },
+
+  "terminal": {
+    "storageKey": "lkevin_command_history",
+    "maxHistorySize": 100
+  },
+
+  "clientCommands": [
+    "help", "clear", "about", "echo", "cfu", "env", "exit", "info", "weather", "motd", "ls"
+  ],
+
+  "links": {
+    "fn":          { "url": "https://fn.lkev.in", "name": "Fermi Notify", "alias": "ferminotify" },
+    "ferminotify": { "url": "https://fn.lkev.in", "name": "Fermi Notify", "hidden": true },
+    "adsb":        { "url": "https://adsb.lkev.in", "name": "ADS-B Receiver Map", "subcommands": {
+      "graph": { "url": "https://adsb.lkev.in/graphs1090", "name": "ADS-B Graphs" },
+      "ttyd":  { "url": "https://adsb.lkev.in/ttyd", "name": "ADS-B Terminal" }
+    }},
+    "uni":         { "url": "https://unipv.lkev.in", "name": "Uni tools" },
+    "ig":          { "url": "https://www.instagram.com/kev1nl1u/", "name": "Instagram", "redirect": true },
+    "gh":          { "url": "https://github.com/kev1nl1u", "name": "GitHub", "redirect": true },
+    "li":          { "url": "https://linkedin.com/in/liuck", "name": "LinkedIn", "redirect": true },
+    "fdb":         { "url": "https://fdb.lkev.in", "name": "FermiDB", "sudoOnly": true }
+  },
+
+  "weatherCodes": {
+    "0": "Clear ☀️",
+    "1": "Mainly clear 🌤️",
+    "2": "Partly cloudy ⛅",
+    "3": "Overcast ☁️",
+    "45": "Fog 🌫️",
+    "48": "Depositing rime fog ❄️🌫️",
+    "51": "Light drizzle 🌦️",
+    "53": "Moderate drizzle 🌧️",
+    "55": "Dense drizzle 🌧️",
+    "56": "Freezing drizzle ❄️🌧️",
+    "57": "Freezing dense drizzle ❄️🌧️",
+    "61": "Slight rain 🌦️",
+    "63": "Moderate rain 🌧️",
+    "65": "Heavy rain 🌧️💧",
+    "66": "Freezing rain ❄️🌧️",
+    "67": "Heavy freezing rain ❄️🌧️",
+    "71": "Slight snow 🌨️",
+    "73": "Moderate snow 🌨️",
+    "75": "Heavy snow 🌨️❄️",
+    "77": "Snow grains ❄️",
+    "80": "Slight rain showers 🌦️",
+    "81": "Moderate rain showers 🌦️",
+    "82": "Violent rain showers ⛈️",
+    "85": "Slight snow showers 🌨️",
+    "86": "Heavy snow showers 🌨️❄️",
+    "95": "Thunderstorm ⛈️",
+    "96": "Thunderstorm with hail ⛈️🌨️",
+    "99": "Thunderstorm with heavy hail ⛈️🌨️"
+  },
+
+  "dateFormat": {
+    "day": "2-digit",
+    "month": "short",
+    "year": "numeric",
+    "hour": "2-digit",
+    "minute": "2-digit",
+    "second": "2-digit",
+    "hour12": false
+  }
+}

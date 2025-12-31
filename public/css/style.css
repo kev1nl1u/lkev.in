@@ -110,6 +110,27 @@ a{
 	text-decoration: none;
 }
 
+/* Weather card */
+.weather-card {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 12px 0;
+}
+.weather-emoji {
+	font-size: 3rem;
+	line-height: 1;
+}
+.weather-info {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.weather-location {
+	font-weight: 600;
+	color: var(--lineStartUrl);
+}
+
 @media screen and (max-width: 875px) {
 	.command-help-list{
 		grid-template-columns: 1fr;
